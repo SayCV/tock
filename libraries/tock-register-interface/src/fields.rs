@@ -301,6 +301,8 @@ pub trait TryFromValue<V> {
 }
 
 /// Helper macro for computing bitmask of variable number of bits
+/// n.f.m. bitmask!(1) = 1 = 0b1
+/// n.f.m. bitmask!(2) = 3 = 0b11
 #[macro_export]
 macro_rules! bitmask {
     ($numbits:expr) => {
@@ -309,6 +311,16 @@ macro_rules! bitmask {
 }
 
 /// Helper macro for defining register fields.
+/// n.f.m.
+/// register_bitmasks!( $valtype, Register, $fields )
+/// $valtype = 寄存器变量类型 u32
+/// Register = 公有成员
+/// $fields  = [ INTLINESNUM     OFFSET(0)   NUMBITS(4) ]
+/// 故匹配到第3个 BITFIELD_NAME OFFSET(x) NUMBITS(y)
+/// 共6个匹配选项
+/// $(,)? 可以匹配最后多余符号,
+/// 然后转第6个匹配选项干脏活
+/// mod InterruptControllerType { mod INTLINESNUM {} }
 #[macro_export]
 macro_rules! register_bitmasks {
     {
@@ -478,6 +490,21 @@ macro_rules! register_bitmasks {
 }
 
 /// Define register types and fields.
+/// n.f.m.
+/// register_bitfields![u32,
+/// InterruptControllerType [
+///     /// Total number of interrupt lines in groups of 32
+///     INTLINESNUM     OFFSET(0)   NUMBITS(4)
+/// ],
+/// ...
+/// `$valtype`      匹配到寄存器变量类型 u32
+/// `$(#[$inner])*` 匹配到注释 /// Total number of interrupt lines in groups of 32
+/// `$vis`          匹配不到
+/// `* $(,)?`       遍历匹配
+/// `$reg`          匹配到寄存器名称 InterruptControllerType
+/// $fields         匹配到字段 [ INTLINESNUM     OFFSET(0)   NUMBITS(4) ]
+/// 定义结构体包含成员 Register
+/// 调用 register_bitmasks!( $valtype, Register, $fields )
 #[macro_export]
 macro_rules! register_bitfields {
     {

@@ -153,6 +153,7 @@ pub unsafe fn next_pending() -> Option<u32> {
         // If there are any high bits there is a pending interrupt
         if ispr != 0 {
             // trailing_zeros == index of first high bit
+            // n.f.m. 返回 ispr 二进制表示中尾随零的数量
             let bit = ispr.trailing_zeros();
             return Some(block as u32 * 32 + bit);
         }
@@ -191,7 +192,7 @@ pub unsafe fn has_pending() -> bool {
     NVIC.ispr
         .iter()
         .take(number_of_nvic_registers())
-        .fold(0, |i, ispr| ispr.get() | i)
+        .fold(0, |i, ispr| ispr.get() | i) // n.f.m. 折叠/聚合函数, 累进值从初始值 0 开始遍历 32 组 ispr 寄存器, 遍历动作为是否有非零值
         != 0
 }
 

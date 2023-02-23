@@ -13,6 +13,11 @@ use crate::CortexMVariant;
 /// This is used in the syscall handler. When set to 1 this means the
 /// svc_handler was called. Marked `pub` because it is used in the cortex-m*
 /// specific handler.
+/// n.f.m.
+/// no_mangle 编译属性修饰, 保证最终编译产物中的符号信息不会被修改或优化掉
+/// The used attribute can only be applied to static items
+/// This attribute forces the compiler to keep the variable in the output object file
+/// See https://doc.rust-lang.org/reference/abi.html
 #[no_mangle]
 #[used]
 pub static mut SYSCALL_FIRED: usize = 0;
@@ -39,6 +44,7 @@ const SVC_FRAME_SIZE: usize = 32;
 
 /// This holds all of the state that the kernel must keep for the process when
 /// the process is not executing.
+/// n.f.m. derive(Default) 创建一个数据类型的空实例, 实现了 default 函数
 #[derive(Default)]
 pub struct CortexMStoredState {
     regs: [usize; 8],
@@ -48,6 +54,7 @@ pub struct CortexMStoredState {
 }
 
 /// Values for encoding the stored state buffer in a binary slice.
+/// n.f.m. size_of 返回字节数, size_of::<u32> = 4
 const VERSION: usize = 1;
 const STORED_STATE_SIZE: usize = size_of::<CortexMStoredState>();
 const TAG: [u8; 4] = [b'c', b't', b'x', b'm'];
@@ -61,6 +68,7 @@ const PSR_IDX: usize = 4;
 const PSP_IDX: usize = 5;
 const REGS_IDX: usize = 6;
 const REGS_RANGE: Range<usize> = REGS_IDX..REGS_IDX + 8;
+/// n.f.m. Range{ start: 6, end: 6+8 } = [6, 14)
 
 const USIZE_SZ: usize = size_of::<usize>();
 fn usize_byte_range(index: usize) -> Range<usize> {
@@ -109,6 +117,13 @@ impl core::convert::TryFrom<&[u8]> for CortexMStoredState {
 
 /// Implementation of the `UserspaceKernelBoundary` for the Cortex-M non-floating point
 /// architecture.
+/// n.f.m.
+/// PhantomData, 虚类型数据, 也叫幽灵数据
+/// 零大小类型, 告诉编译器, 该类型保存有一个类型T的数据成员(尽管他并不真的是拥有该类型数据)
+/// 该信息将有助于计算特定的安全问题
+/// PhantomData 是用来帮助编译器做检查的, 有2个用途
+/// 1. 未使用的声明周期
+/// 2. 未使用的类型参数(type parameter)
 pub struct SysCall<A: CortexMVariant>(PhantomData<A>);
 
 impl<A: CortexMVariant> SysCall<A> {
@@ -120,6 +135,12 @@ impl<A: CortexMVariant> SysCall<A> {
 impl<A: CortexMVariant> kernel::syscall::UserspaceKernelBoundary for SysCall<A> {
     type StoredState = CortexMStoredState;
 
+    /// n.f.m.
+    /// The brk system call is a way to dynamically allocate memory within a program, allowing it to grow and shrink as needed
+    /// The top of the heap, known as the break.
+    /// The break can be changed using brk and sbrk.
+    /// Above the break lies virtual addresses which have not been mapped to physical addresses by the operating system.
+    /// See https://inst.eecs.berkeley.edu/~cs162/su22/static/hw/hw-memory/docs/sbrk/syscall-implementation/
     fn initial_process_app_brk_size(&self) -> usize {
         // Cortex-M hardware uses 8 words on the stack to implement context
         // switches. So we need at least 32 bytes.
@@ -164,6 +185,7 @@ impl<A: CortexMVariant> kernel::syscall::UserspaceKernelBoundary for SysCall<A> 
 
         // First, we need to validate that this location is inside of the
         // process's accessible memory. Alignment is guaranteed by hardware.
+        /// n.f.m. saturating_add 饱和整数加法, 在数值边界处饱和而不是溢出
         if state.psp < accessible_memory_start as usize
             || state.psp.saturating_add(mem::size_of::<u32>() * 4) > app_brk as usize
         {
